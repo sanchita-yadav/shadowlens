@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ShadowLens</title>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin-top: 150px;
+        }
+
+        h1 {
+            font-size: 48px;
+        }
+
+        p {
+            font-size: 18px;
+        }
+
+        input {
+            padding: 12px;
+            width: 280px;
+            font-size: 16px;
+        }
+
+        button {
+            padding: 12px 20px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h1>ShadowLens</h1>
+    <p>See what your digital footprint reveals.</p>
+
+    <input type="text" placeholder="Enter a GitHub username">
+    <button>Analyze</button>
+    <div id="results"></div>
+        <div id="results"></div>
+
+    <script>
+    const input = document.querySelector("input");
+    const button = document.querySelector("button");
+    const results = document.getElementById("results");
+
+    button.addEventListener("click", async () => {
+        const username = input.value.trim();
+
+        if (!username) {
+            alert("Please enter a GitHub username.");
+            return;
+        }
+
+        results.innerText = "Analyzing...";
+
+        const response = await fetch(
+            `http://127.0.0.1:5000/analyze?username=${username}`
+        );
+
+        const data = await response.json();
+
+        if (data.error) {
+            results.innerText = data.error;
+            return;
+        }
+
+        results.innerHTML = `
+            <h2>${data.name}</h2>
+            <p>Username: ${data.username}</p>
+            <p>Location: ${data.location || "Not public"}</p>
+            <p>Company: ${data.company || "Not public"}</p>
+            <p>Followers: ${data.followers}</p>
+            <p>Public repositories: ${data.public_repos}</p>
+        `;
+    });
+</script>
+
+</body>
+</html>
+</body>
+</html>
