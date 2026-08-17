@@ -28,11 +28,31 @@ def analyze():
 
     # Fetch repositories
     repos = fetch_repositories(username)
+    print("Repositories found:", len(repos))
 
     # Currently testing the first repository
     if repos:
-        repo_name = repos[0]["name"]
-        files = fetch_repo_files(username, repo_name)
+        findings = []
+
+        for repo in repos:
+            repo_name = repo["name"]
+            files = fetch_repo_files(username, repo_name)
+
+            for file in files:
+                if not is_scannable_file(file["name"]):
+                    continue
+
+                content = fetch_file_content(file["download_url"])
+                detected = detect_secrets(content)
+
+                for secret_type in detected:
+                    findings.append({
+                        "repository": repo_name,
+                        "file": file["path"],
+                        "type": secret_type
+            })
+
+        print("Findings:", findings)
 
         scannable_files = [
             file for file in files
@@ -53,22 +73,27 @@ def analyze():
         "location": data["location"],
         "company": data["company"],
         "followers": data["followers"],
-        "public_repos": data["public_repos"]
+        "public_repos": data["public_repos"],
+        "findings": findings
     })
 
 
-def fetch_profile(username):
-    url = f"https://api.github.com/users/{username}"
+def fetch_repo_files(username, repo, path=""):
+    url = f"https://api.github.com/repos/{username}/{repo}/contents/{path}"
     response = requests.get(url)
+    if response.status_code != 200:
+        return []
 
-    print(response.status_code)
-
-    if response.status_code == 200:
-        data = response.json()
-        display_profile(data)
-        calculate_exposure_score(data)
-    else:
-        print("GitHub username not found")
+    items = response.json()
+    files = []
+    for item in items:
+        if item["type"] == "file":
+            files.append(item)
+        elif item["type"] == "dir":
+            files.extend(
+                fetch_repo_files(username, repo, item["path"])
+            )
+    return files
 
 
 def display_profile(data):

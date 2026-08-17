@@ -70,14 +70,35 @@
             return;
         }
 
-        results.innerHTML = `
-            <h2>${data.name}</h2>
-            <p>Username: ${data.username}</p>
-            <p>Location: ${data.location || "Not public"}</p>
-            <p>Company: ${data.company || "Not public"}</p>
-            <p>Followers: ${data.followers}</p>
-            <p>Public repositories: ${data.public_repos}</p>
-        `;
+        let findingsHTML = "";
+
+if (data.findings.length === 0) {
+    findingsHTML = `
+        <p>No sensitive information detected.</p>
+    `;
+} else {
+    findingsHTML = `
+        <h3>Potential Exposure</h3>
+        <ul>
+            ${data.findings.map(finding => `
+                <li>
+                    <strong>${finding.type}</strong>
+                    <br>
+                    Repository: ${finding.repository}
+                    <br>
+                    File: ${finding.file}
+                </li>
+            `).join("")}
+        </ul>
+    `;
+}
+
+results.innerHTML = `
+    <h2>${data.name}</h2>
+    <p>Username: ${data.username}</p>
+
+    ${findingsHTML}
+`;
     });
 </script>
 
