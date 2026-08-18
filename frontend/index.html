@@ -72,7 +72,7 @@
 
         let findingsHTML = "";
 
-if (data.findings.length === 0) {
+if (!data.findings || data.findings.length === 0) {
     findingsHTML = `
         <p>No sensitive information detected.</p>
     `;
