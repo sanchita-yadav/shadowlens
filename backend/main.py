@@ -1,9 +1,14 @@
 import requests
 import re
+import os
 from flask import Flask, jsonify, request
 
 app = Flask(__name__)
-
+GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
+HEADERS = {
+    "Authorization": f"Bearer {GITHUB_TOKEN}",
+    "Accept": "application/vnd.github+json"
+}
 
 @app.route("/")
 def home():
@@ -19,10 +24,18 @@ def analyze():
 
     # Fetch GitHub profile
     url = f"https://api.github.com/users/{username}"
-    response = requests.get(url)
+    response = requests.get(url, headers=HEADERS)
+    print("GitHub status:", response.status_code)
+    print("GitHub response:", response.text[:300])
+
+    if response.status_code == 404:
+        return jsonify({"error": "GitHub username not found"}), 404
+
+    if response.status_code == 403:
+        return jsonify({"error": "GitHub API rate limit exceeded"}), 429
 
     if response.status_code != 200:
-        return jsonify({"error": "GitHub username not found"}), 404
+        return jsonify({"error": "GitHub API error"}), 500
 
     data = response.json()
 
@@ -80,7 +93,7 @@ def analyze():
 
 def fetch_repo_files(username, repo, path=""):
     url = f"https://api.github.com/repos/{username}/{repo}/contents/{path}"
-    response = requests.get(url)
+    response = requests.get(url, headers=HEADERS)
     if response.status_code != 200:
         return []
 
@@ -111,7 +124,7 @@ def calculate_exposure_score(data):
 
 def fetch_repositories(username):
     url = f"https://api.github.com/users/{username}/repos"
-    response = requests.get(url)
+    response = requests.get(url, headers=HEADERS)
 
     if response.status_code == 200:
         return response.json()
@@ -121,7 +134,7 @@ def fetch_repositories(username):
 
 def fetch_repo_files(username, repo):
     url = f"https://api.github.com/repos/{username}/{repo}/contents"
-    response = requests.get(url)
+    response = requests.get(url, headers=HEADERS)
 
     if response.status_code == 200:
         return response.json()
@@ -150,17 +163,37 @@ def fetch_file_content(file_url):
 
 def detect_secrets(content):
     patterns = {
-        "API key": r"(?i)(api[_-]?key)\s*[:=]\s*['\"][^'\"]+['\"]",
-        "Password": r"(?i)(password|passwd)\s*[:=]\s*['\"][^'\"]+['\"]",
-        "Secret key": r"(?i)(secret[_-]?key)\s*[:=]\s*['\"][^'\"]+['\"]",
-        "Access token": r"(?i)(access[_-]?token)\s*[:=]\s*['\"][^'\"]+['\"]"
+        "API key": r'(?i)api[_-]?key\s*[:=]\s*[\'"]([^\'"]+)[\'"]',
+        "Password": r'(?i)(password|passwd)\s*[:=]\s*[\'"]([^\'"]+)[\'"]',
+        "Secret key": r'(?i)secret[_-]?key\s*[:=]\s*[\'"]([^\'"]+)[\'"]',
+        "Access token": r'(?i)access[_-]?token\s*[:=]\s*[\'"]([^\'"]+)[\'"]'
     }
 
     findings = []
 
+    placeholder_values = {
+        "your_api_key",
+        "your_api_key_here",
+        "api_key",
+        "your_secret_key",
+        "your_password",
+        "password",
+        "your_access_token",
+        "access_token",
+        "xxx",
+        "xxxxx",
+        "example",
+        "test"
+    }
+
     for secret_type, pattern in patterns.items():
-        if re.search(pattern, content):
-            findings.append(secret_type)
+        matches = re.findall(pattern, content)
+
+        for match in matches:
+            value = match.strip().lower()
+
+            if value not in placeholder_values:
+                findings.append(secret_type)
 
     return findings
 
